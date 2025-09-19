@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Assistant</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f4f4; }
+        #chat-log { width: 100%; height: 350px; background: #fff; border: 1px solid #ccc; overflow-y: scroll; padding: 10px; margin-bottom: 10px; }
+        #user-input { width: 70%; padding: 8px; font-size: 1em; }
+        .btn { padding: 8px 16px; font-size: 1em; border: none; border-radius: 4px; margin-left: 5px; }
+        .send { background: #2563eb; color: #fff; }
+        .clear { background: #6b7280; color: #fff; }
+        .save { background: #22c55e; color: #fff; }
+        .user { color: #0078D7; font-weight: bold; }
+        .bot { color: #333; }
+        .sql { color: #16a34a; font-family: monospace; }
+        .result { color: #1d4ed8; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h2>AI Assistant</h2>
+    <div style="background:#f0f4f8; border:1px solid #bcd; padding:16px; margin-bottom:20px; border-radius:6px;">
+        <strong>Prompt Engineering Guide:</strong>
+        <ul style="margin-top:8px;">
+            <li><b>[General]:</b> Uses Bedrock LLM for general Q&amp;A.<br>
+                <i>Example:</i> [General] Benefits of AI</li>
+            <li><b>[Database]:</b> Converts natural language to SQL and queries the DB.<br>
+                <i>Example:</i> [Database] Show all incidents from last week.</li>
+            <li><b>[API]:</b> Uses Bedrock LLM to build a JSON payload, calls the specified API, and returns the response.<br>
+                <i>Example:</i> [API][Create Incident API]: Create an incident for company code OEM1 and VIN 1GYKPGRS4MZ153770.</li>
+        </ul>
+    </div>
+    <div id="chat-log"></div>
+    <input type="text" id="user-input" placeholder="Type your question..." autocomplete="off" list="prompt-patterns"/>
+    <datalist id="prompt-patterns">
+        <option value="[General]">
+        <option value="[Database]">
+        <option value="[API] [Create Incident API]">
+    </datalist>
+    <button class="btn send" onclick="sendMessage()">Send</button>
+    <button class="btn clear" onclick="clearChat()">Clear</button>
+    <button class="btn save" onclick="saveChat()">Save Chat</button>
+    <script>
+        // Get context path from Flask template
+        const contextPath = '{{ context_path }}';
+        console.log('Context Path:', contextPath);
+        function appendMessage(sender, text, cssClass) {
+            const log = document.getElementById('chat-log');
+            const div = document.createElement('div');
+            div.className = cssClass;
+            div.innerHTML = `<span class="${sender}">${sender === 'user' ? 'You' : 'Bot'}:</span> ${text}`;
+            log.appendChild(div);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('user-input');
+            const message = input.value.trim();
+            if (!message) return;
+            appendMessage('user', message, 'user');
+            input.value = '';
+
+            // Construct the correct URL with context path
+            const chatUrl = contextPath ? `${contextPath}/chat` : '/chat';
+            // chaturl = 'ai-assistant/chat'
+            // hiting: https://eks-dev-est-app.cccis.com/ai-assistant/chat
+            // const chatUrl = contextPath ? `wfaipoc/${contextPath}/chat` : '/chat';
+            // chaturl = 'wfaipoc/ai-assistant/chat'
+            // hiting: https://eks-dev-est-app.cccis.com/wfaipoc/wfaipoc/ai-assistant/chat
+
+            // const chatUrl = 'https://eks-dev-est-app.cccis.com/wfaipoc/wfaipoc/ai-assistant/chat';
+            console.log('chatUrl: ', chatUrl);
+            fetch(chatUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    appendMessage('bot', `<span style="color: red;">Error: ${data.error}</span>`, 'bot');
+                } else {
+                    if (data.llm_sql) {
+                        appendMessage('bot', `<span class="sql">${data.llm_sql}</span>`, 'bot');
+                    }
+                    if (data.result) {
+                        appendMessage('bot', `<span class="result">${data.result.replace(/\n/g, '<br>')}</span>`, 'bot');
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                appendMessage('bot', `<span style="color: red;">Network Error: ${error.message}</span>`, 'bot');
+            });
+        }
+
+        function clearChat() {
+            document.getElementById('chat-log').innerHTML = '';
+        }
+
+        function saveChat() {
+            const text = document.getElementById('chat-log').innerText;
+            const blob = new Blob([text], {type: 'text/plain'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'chat_history.txt';
+            a.click();
+        }
+
+        document.getElementById('user-input').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        const patterns = [
+            "[General]",
+            "[Database]",
+            "[API] [Create Incident API]"
+        ];
+
+        document.getElementById('user-input').addEventListener('input', function(e) {
+            const val = e.target.value;
+            for (const pattern of patterns) {
+                if (val === pattern) {
+                    e.target.value = pattern + " ";
+                    break;
+                }
+            }
+        });
+    </script>
+</body>
+</html>

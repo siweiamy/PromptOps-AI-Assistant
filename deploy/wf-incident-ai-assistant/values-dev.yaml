@@ -1,0 +1,50 @@
+global:
+  env:
+    DB_HOST: cfapgada-cluster.cluster-cq3nyfn9rutv.us-east-1.rds.amazonaws.com
+    DB_PORT: '5432'
+    DB_NAME: cfapgda
+    DB_USER: incidentuser
+    CONTEXT_PATH: /ai-assistant
+    MICROSOFT_APP_ID: "1833927a-479c-4dc9-8a75-32345c55faf4"
+    MICROSOFT_APP_PASSWORD: ""
+    MICROSOFT_TENANT_ID: "1a188ae6-a002-4149-8234-e47371d17cce"
+    MICROSOFT_APP_TYPE: "SingleTenant"
+  ingress:
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "false"
+      nginx.ingress.kubernetes.io/rewrite-target: /ai-assistant/$2
+  pod:
+    annotations:
+      cloudwatch_app_signals:
+        enabled: true
+      vault:
+        enabled: true
+        path: secret/data/k8s/eks-dev-est-app/wf-incident-ai-assistant-dev/config
+        role: wf-incident-ai-assistant-dev
+        authpath: auth/eks-dev-est-app
+      jsonLogs:
+        enabled: true
+  readinessProbe:
+    initialDelaySeconds: 10
+    failureThreshold: 15
+    periodSeconds: 10
+    timeoutSeconds: 2
+    httpGet:
+      healthEndpoint: /ai-assistant/ready
+      port: 5000
+  livenessProbe:
+    initialDelaySeconds: 10
+    periodSeconds: 15
+    timeoutSeconds: 2
+    httpGet:
+      healthEndpoint: /ai-assistant/health
+      port: 5000
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+  serviceAccount:
+    annotations:
+      eks.amazonaws.com/role-arn: arn:aws:iam::877758877242:role/eks_oidc_auth_wf_incident_ai_assistant_role_dev
+  image:
+    name: 187669607111.dkr.ecr.us-east-1.amazonaws.com/workflow/wf-incident-ai-assistant
+    pullPolicy: Always
